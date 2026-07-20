@@ -1,0 +1,23 @@
+version: "3.9"
+
+# Local infra only — the FastAPI app and Celery worker run directly on your
+# machine (via uvicorn / celery commands) so it's easier to iterate on and debug.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: docsync
+      POSTGRES_PASSWORD: docsync
+      POSTGRES_DB: docsync
+    ports:
+      - "5432:5432"
+    volumes:
+      - docsync_pg_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+volumes:
+  docsync_pg_data:
