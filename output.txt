@@ -1,0 +1,19 @@
+Unchanged (2) — skipped, no doc work needed:
+    PRReviewer
+    PRReviewer.run
+
+Added (1) — needs new docs:
+    notify_slack  def notify_slack(message: str, channel: str) -> None
+
+Modified (2) — needs updated docs:
+    PRReviewer.score
+        before: def score(self, diff_text: str) -> float
+        after:  def score(self, diff_text: str) -> dict
+    review_pull_request
+        before: def review_pull_request(pr_number: int) -> dict
+        after:  def review_pull_request(pr_number: int, repo: str) -> dict
+
+Removed (1) — docs should be deleted/flagged:
+    format_comment
+
+3 symbol(s) would be sent to the LLM for doc generation.
