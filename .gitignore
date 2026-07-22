@@ -21,4 +21,4 @@ celerybeat.pid
 Thumbs.db
 
 # Docker
-docker-compose.override.yml
+docker-compose.override.ymlrepo_clones/ 
