@@ -3,13 +3,16 @@ Same pipeline as run_prototype.py, but pulling real file versions from an
 actual git repo instead of the static before.py/after.py fixtures.
 
 Usage:
-    python -m prototype.run_from_git <repo_path> <old_ref> <new_ref>
+    python -m prototype.run_from_git <repo_path> <old_ref> <new_ref> [--limit N]
 
 Example (against your own PR review agent repo, comparing the last two commits):
     python -m prototype.run_from_git ../pr-review-agent HEAD~1 HEAD
+
+--limit caps how many symbols get sent to the LLM — useful on the free tier
+(20 requests/day) so a single test run doesn't burn the whole day's quota.
 """
+import argparse
 import os
-import sys
 
 from dotenv import load_dotenv
 
@@ -21,16 +24,20 @@ load_dotenv()
 
 
 def main():
-    if len(sys.argv) != 4:
-        print("Usage: python -m prototype.run_from_git <repo_path> <old_ref> <new_ref>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("repo_path")
+    parser.add_argument("old_ref")
+    parser.add_argument("new_ref")
+    parser.add_argument(
+        "--limit", type=int, default=None,
+        help="Max number of symbols to send to the LLM (protects free-tier daily quota).",
+    )
+    args = parser.parse_args()
 
-    repo_path, old_ref, new_ref = sys.argv[1], sys.argv[2], sys.argv[3]
-
-    file_versions = get_changed_file_versions(repo_path, old_ref, new_ref)
+    file_versions = get_changed_file_versions(args.repo_path, args.old_ref, args.new_ref)
 
     if not file_versions:
-        print(f"No changed .py files between {old_ref} and {new_ref}.")
+        print(f"No changed .py files between {args.old_ref} and {args.new_ref}.")
         return
 
     all_changed_symbols = []
@@ -59,7 +66,11 @@ def main():
 
         all_changed_symbols.extend(result.added + [new_sym for _, new_sym in result.modified])
 
-    print(f"\n{len(all_changed_symbols)} symbol(s) total would be sent to the LLM for doc generation.")
+    print(f"\n{len(all_changed_symbols)} symbol(s) total identified for doc generation.")
+
+    if args.limit is not None and len(all_changed_symbols) > args.limit:
+        print(f"--limit {args.limit} set — only sending the first {args.limit} to the LLM.")
+        all_changed_symbols = all_changed_symbols[: args.limit]
 
     if not all_changed_symbols:
         return

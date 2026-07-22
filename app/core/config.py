@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     # GitHub
     GITHUB_WEBHOOK_SECRET: str = "changeme"
     GITHUB_APP_TOKEN: str = ""
+    REPO_CLONE_DIR: str = "./repo_clones"  # where the worker keeps local clones for git diffing
 
     # LLM
     GEMINI_API_KEY: str = ""
