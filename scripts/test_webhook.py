@@ -54,6 +54,17 @@ def main():
     result = process_push_event(payload)
     print("\nResult:", result)
 
+    if result.get("status") == "failed":
+        from app.db.base import SessionLocal
+        from app.db.models import SyncRun
+
+        db = SessionLocal()
+        try:
+            run = db.query(SyncRun).filter(SyncRun.id == result["sync_run_id"]).first()
+            print("Error detail:", run.error_message if run else "(sync run not found)")
+        finally:
+            db.close()
+
 
 if __name__ == "__main__":
     main()

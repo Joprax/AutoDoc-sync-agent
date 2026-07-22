@@ -56,6 +56,7 @@ class SyncRun(Base):
     commit_sha = Column(String, nullable=False)
     status = Column(String, default="pending")  # pending | running | success | failed
     symbols_changed = Column(Integer, default=0)
+    pr_url = Column(String, nullable=True)
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=utcnow)
     finished_at = Column(DateTime, nullable=True)

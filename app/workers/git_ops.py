@@ -8,7 +8,10 @@ import os
 import subprocess
 
 
-def _run_git(*args: str, cwd: str | None = None) -> str:
+def run_git(*args: str, cwd: str | None = None) -> str:
+    """Runs a git command and returns its stdout. Raises RuntimeError with
+    stderr on failure. Public — shared by git_ops.py (cloning/fetching) and
+    github_pr.py (branching/committing/pushing for write-back)."""
     result = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)} failed: {result.stderr.strip()}")
@@ -28,8 +31,8 @@ def ensure_local_clone(clone_url: str, repo_full_name: str, base_dir: str) -> st
 
     if not os.path.isdir(os.path.join(local_path, ".git")):
         os.makedirs(base_dir, exist_ok=True)
-        _run_git("clone", clone_url, local_path)
+        run_git("clone", clone_url, local_path)
     else:
-        _run_git("fetch", "--all", cwd=local_path)
+        run_git("fetch", "--all", cwd=local_path)
 
     return local_path
