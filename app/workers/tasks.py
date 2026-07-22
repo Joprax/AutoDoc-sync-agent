@@ -36,7 +36,7 @@ from app.db.models import Repo, SyncRun, Symbol, utcnow
 from app.workers.celery_app import celery_app
 from app.workers.doc_writer import write_doc_pages
 from app.workers.git_ops import ensure_local_clone
-from app.workers.github_pr import write_back_docs
+from app.workers.github_pr import checkout_new_branch, write_back_docs
 
 
 @celery_app.task(name="process_push_event")
@@ -111,6 +111,9 @@ def process_push_event(payload: dict):
             # (everything up to here still works and gets persisted), so
             # we skip write-back quietly rather than failing the whole run.
             if changed and settings.GITHUB_APP_TOKEN:
+                branch_name = f"docs-sync/{after_sha[:7]}"
+                checkout_new_branch(local_path, branch_name, after_sha)  # must happen before any docs are written
+
                 relative_paths = write_doc_pages(
                     local_repo_path=local_path,
                     docs_output_path=repo.docs_output_path,
@@ -121,6 +124,7 @@ def process_push_event(payload: dict):
                     local_repo_path=local_path,
                     repo_full_name=repo_full_name,
                     base_branch=repo.default_branch,
+                    branch_name=branch_name,
                     base_sha=after_sha,
                     relative_paths=relative_paths,
                     symbols_changed=len(changed),

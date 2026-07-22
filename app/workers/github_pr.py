@@ -10,19 +10,17 @@ import requests
 from app.workers.git_ops import run_git
 
 
-def create_branch_and_commit(
-    local_repo_path: str,
-    branch_name: str,
-    base_sha: str,
-    relative_paths: list[str],
-    commit_message: str,
-) -> None:
-    """Checks out base_sha detached, creates a new branch from it, stages
-    only the given files, and commits. Doesn't touch whatever branch was
-    checked out before — this always starts from the exact commit the
-    webhook told us about."""
+def checkout_new_branch(local_repo_path: str, branch_name: str, base_sha: str) -> None:
+    """Checks out base_sha detached, then creates a new branch from it.
+    Must run BEFORE anything writes into the working tree — once doc files
+    are written to local_repo_path, this checkout will fail if it would
+    overwrite those uncommitted files (see SyncRun failures like #3)."""
     run_git("checkout", base_sha, cwd=local_repo_path)
     run_git("checkout", "-b", branch_name, cwd=local_repo_path)
+
+
+def commit_changes(local_repo_path: str, relative_paths: list[str], commit_message: str) -> None:
+    """Stages the given files and commits. Assumes checkout_new_branch already ran."""
     run_git("add", *relative_paths, cwd=local_repo_path)
     run_git("commit", "-m", commit_message, cwd=local_repo_path)
 
@@ -62,16 +60,17 @@ def write_back_docs(
     local_repo_path: str,
     repo_full_name: str,
     base_branch: str,
+    branch_name: str,
     base_sha: str,
     relative_paths: list[str],
     symbols_changed: int,
     github_token: str,
 ) -> str:
-    """Full write-back flow: branch, commit, push, open PR. Returns the PR URL."""
-    branch_name = f"docs-sync/{base_sha[:7]}"
+    """Commits already-written doc files on the already-checked-out branch,
+    pushes, and opens a PR. Returns the PR URL."""
     commit_message = f"docs: sync generated documentation for {symbols_changed} symbol(s)"
 
-    create_branch_and_commit(local_repo_path, branch_name, base_sha, relative_paths, commit_message)
+    commit_changes(local_repo_path, relative_paths, commit_message)
     push_branch(local_repo_path, repo_full_name, branch_name, github_token)
 
     return open_pull_request(
