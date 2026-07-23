@@ -49,6 +49,10 @@ def process_push_event(payload: dict):
     clone_url = payload.get("repository", {}).get("clone_url")
     before_sha = payload.get("before")
     after_sha = payload.get("after")
+    pushed_ref = payload.get("ref", "")  # e.g. "refs/heads/main"
+
+    ZERO_SHA = "0" * 40  # GitHub's marker for "this ref didn't exist before this push"
+                          # (branch creation) or "doesn't exist after" (branch deletion)
 
     db = SessionLocal()
     try:
@@ -56,6 +60,21 @@ def process_push_event(payload: dict):
         if repo is None:
             # Repo isn't registered yet — nothing to do until it's added via the API/dashboard.
             return {"status": "skipped", "reason": "repo not registered"}
+
+        # Only react to pushes on the repo's actual default branch. Without
+        # this, the agent's own write-back (pushing a docs-sync/* branch to
+        # open a PR) triggers a second webhook for THAT push, which then
+        # tries to process itself — and fails, since a brand-new branch has
+        # no meaningful "before" commit to diff against (before_sha is the
+        # zero-SHA in that case).
+        expected_ref = f"refs/heads/{repo.default_branch}"
+        if pushed_ref != expected_ref:
+            return {"status": "skipped", "reason": f"push to {pushed_ref!r}, not default branch"}
+
+        if before_sha == ZERO_SHA or after_sha == ZERO_SHA:
+            # Defense in depth — shouldn't reach here given the branch check
+            # above, but a zero-SHA means there's no real diff to compute.
+            return {"status": "skipped", "reason": "branch created or deleted, nothing to diff"}
 
         sync_run = SyncRun(repo_id=repo.id, commit_sha=after_sha, status="running")
         db.add(sync_run)
