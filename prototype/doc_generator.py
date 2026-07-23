@@ -1,23 +1,22 @@
 """
-Turns diffed symbols into generated documentation via OpenAI.
+Turns diffed symbols into generated documentation via Gemini.
 
 Kept separate from symbol_extractor/differ on purpose: those two are pure,
 deterministic, and easy to test without any API key. This module is the
 only place that talks to the network, so it's the only place that needs
-OPENAI_API_KEY set and the only place that can fail on rate limits/quota.
+GEMINI_API_KEY set and the only place that can fail on rate limits/quota.
 """
 import os
 import time
 
-from openai import AuthenticationError, OpenAI, RateLimitError
+from google import genai
+from google.genai import errors
 
 from prototype.symbol_extractor import Symbol
 
-MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
 
-# Generic backoff for 429s. OpenAI's rate-limit errors don't distinguish
-# per-minute vs per-day the way Gemini's did, so we just retry with
-# increasing delay rather than trying to classify the cause.
+# Generic backoff for 429s.
 RETRY_DELAY_SECONDS = 5
 
 PROMPT_TEMPLATE = """You are writing API documentation for a Python codebase.
@@ -36,17 +35,17 @@ Rules:
 """
 
 
-def _client() -> OpenAI:
-    api_key = os.environ.get("OPENAI_API_KEY")
+def _client() -> genai.Client:
+    api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise RuntimeError(
-            "OPENAI_API_KEY is not set. Add it to your .env file before running doc generation."
+            "GEMINI_API_KEY is not set. Add it to your .env file before running doc generation."
         )
-    return OpenAI(api_key=api_key)
+    return genai.Client(api_key=api_key)
 
 
 def generate_doc(symbol: Symbol, retries: int = 3) -> str:
-    """Calls the OpenAI API once for a single symbol and returns the generated
+    """Calls the Gemini API once for a single symbol and returns the generated
     docstring text. Retries on 429 (rate limit) with increasing backoff."""
     client = _client()
     prompt = PROMPT_TEMPLATE.format(
@@ -58,22 +57,25 @@ def generate_doc(symbol: Symbol, retries: int = 3) -> str:
 
     for attempt in range(retries):
         try:
-            response = client.chat.completions.create(
+            response = client.models.generate_content(
                 model=MODEL,
-                messages=[{"role": "user", "content": prompt}],
+                contents=prompt,
             )
-            return response.choices[0].message.content.strip()
-        except AuthenticationError as exc:
-            raise RuntimeError(
-                "OPENAI_API_KEY was rejected by OpenAI. Double check it was copied "
-                "correctly and hasn't been revoked."
-            ) from exc
-        except RateLimitError:
-            if attempt < retries - 1:
-                wait_seconds = RETRY_DELAY_SECONDS * (attempt + 1)
-                print(f"    (rate limited on {symbol.qualified_name}, waiting {wait_seconds}s...)")
-                time.sleep(wait_seconds)
-                continue
+            return response.text.strip()
+        except errors.ClientError as exc:
+            # 401/403-style auth failures come back as ClientError with a status code
+            if getattr(exc, "code", None) in (401, 403):
+                raise RuntimeError(
+                    "GEMINI_API_KEY was rejected by Gemini. Double check it was copied "
+                    "correctly and hasn't been revoked."
+                ) from exc
+            if getattr(exc, "code", None) == 429:
+                if attempt < retries - 1:
+                    wait_seconds = RETRY_DELAY_SECONDS * (attempt + 1)
+                    print(f"    (rate limited on {symbol.qualified_name}, waiting {wait_seconds}s...)")
+                    time.sleep(wait_seconds)
+                    continue
+                raise
             raise
 
 
