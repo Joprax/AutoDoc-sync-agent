@@ -1,5 +1,3 @@
-version: "3.9"
-
 # Local infra only — the FastAPI app and Celery worker run directly on your
 # machine (via uvicorn / celery commands) so it's easier to iterate on and debug.
 services:

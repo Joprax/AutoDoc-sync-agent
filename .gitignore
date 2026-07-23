@@ -12,6 +12,14 @@ venv/
 celerybeat-schedule
 celerybeat.pid
 
+# Agent-managed local repo clones — disposable working state, not source
+repo_clones/
+
+# Node / Next.js (dashboard/)
+dashboard/node_modules/
+dashboard/.next/
+dashboard/out/
+
 # IDE
 .vscode/
 .idea/
@@ -22,5 +30,6 @@ Thumbs.db
 
 # Docker
 docker-compose.override.yml
-repo_clones/
- 
+
+# Local databases
+*.db

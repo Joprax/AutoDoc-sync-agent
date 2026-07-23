@@ -1,0 +1,161 @@
+.main {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+
+.back {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: none;
+  margin-bottom: 32px;
+}
+
+.back:hover {
+  color: var(--sage);
+}
+
+.header {
+  margin-bottom: 40px;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sage);
+  margin: 0 0 8px;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(26px, 4vw, 34px);
+  margin: 0;
+  color: var(--text);
+}
+
+.section {
+  margin-bottom: 48px;
+}
+
+.sectionTitle {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+  margin: 0 0 4px;
+}
+
+.emptyText {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 20px 0;
+}
+
+.runList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.runItem {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.runLine {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.runDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.runHash {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.runStatus {
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.runSymbols {
+  color: var(--text-muted);
+}
+
+.runTime {
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.prLink {
+  display: inline-block;
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--sage);
+  text-decoration: none;
+}
+
+.prLink:hover {
+  text-decoration: underline;
+}
+
+.errorText {
+  margin: 8px 0 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--terracotta);
+  line-height: 1.5;
+}
+
+.symbolList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.symbolItem {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.symbolPath {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.symbolSep {
+  color: var(--text-muted);
+}
+
+.symbolDoc {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin: 0;
+}

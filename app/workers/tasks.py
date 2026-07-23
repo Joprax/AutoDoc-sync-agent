@@ -14,10 +14,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()  # must run before importing prototype.* — doc_generator.py reads
-                # GEMINI_MODEL at import time (module-level), so if this runs
-                # after that import, it's already too late and falls back to
-                # the hardcoded default.
+load_dotenv()  # ensures GEMINI_API_KEY etc. are available whether this runs
+                # via a Celery worker, a manual test script, or anything else
 
 # prototype/ lives at the project root, sibling to app/ — add the root to
 # sys.path so it's importable from here without moving/duplicating the code.
@@ -36,7 +34,7 @@ from app.db.models import Repo, SyncRun, Symbol, utcnow
 from app.workers.celery_app import celery_app
 from app.workers.doc_writer import write_doc_pages
 from app.workers.git_ops import ensure_local_clone
-from app.workers.github_pr import checkout_new_branch, write_back_docs
+from app.workers.github_pr import write_back_docs
 
 
 @celery_app.task(name="process_push_event")
@@ -130,24 +128,19 @@ def process_push_event(payload: dict):
             # (everything up to here still works and gets persisted), so
             # we skip write-back quietly rather than failing the whole run.
             if changed and settings.GITHUB_APP_TOKEN:
-                branch_name = f"docs-sync/{after_sha[:7]}"
-                checkout_new_branch(local_path, branch_name, after_sha)  # must happen before any docs are written
-
-                relative_paths = write_doc_pages(
-                    local_repo_path=local_path,
-                    docs_output_path=repo.docs_output_path,
-                    changed=changed,
-                    generated_docs=generated_docs,
-                )
                 pr_url = write_back_docs(
                     local_repo_path=local_path,
                     repo_full_name=repo_full_name,
                     base_branch=repo.default_branch,
-                    branch_name=branch_name,
                     base_sha=after_sha,
-                    relative_paths=relative_paths,
                     symbols_changed=len(changed),
                     github_token=settings.GITHUB_APP_TOKEN,
+                    write_files_callback=lambda: write_doc_pages(
+                        local_repo_path=local_path,
+                        docs_output_path=repo.docs_output_path,
+                        changed=changed,
+                        generated_docs=generated_docs,
+                    ),
                 )
                 sync_run.pr_url = pr_url
 

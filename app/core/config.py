@@ -24,7 +24,11 @@ class Settings(BaseSettings):
 
     # LLM
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-3.5-flash"
+
+    # Dashboard (for CORS) — set this in production to your deployed Vercel URL,
+    # e.g. https://doc-sync-dashboard.vercel.app
+    DASHBOARD_URL: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

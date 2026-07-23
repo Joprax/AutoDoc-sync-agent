@@ -24,8 +24,23 @@ class SyncRunOut(BaseModel):
     commit_sha: str
     status: str
     symbols_changed: int
+    pr_url: str | None
+    error_message: str | None
     created_at: datetime
     finished_at: datetime | None
+
+    class Config:
+        from_attributes = True
+
+
+class SymbolOut(BaseModel):
+    id: int
+    file_path: str
+    symbol_name: str
+    signature_hash: str
+    last_doc_content: str | None
+    last_synced_commit_sha: str | None
+    updated_at: datetime
 
     class Config:
         from_attributes = True

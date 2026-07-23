@@ -75,10 +75,10 @@ def main():
     if not all_changed_symbols:
         return
 
-    if not os.environ.get("GEMINI_API_KEY"):
+    if not os.environ.get("OPENAI_API_KEY"):
         print(
-            "\nGEMINI_API_KEY not set — skipping actual generation.\n"
-            "Export it and re-run to see real generated docstrings."
+            "\nOPENAI_API_KEY not set — skipping actual generation.\n"
+            "Add it to your .env and re-run to see real generated docstrings."
         )
         return
 

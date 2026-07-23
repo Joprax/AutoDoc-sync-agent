@@ -1,0 +1,76 @@
+databases:
+  - name: doc-sync-db
+    plan: free
+    databaseName: docsync
+    user: docsync
+
+services:
+  # Key Value (Render's current name for their Redis-compatible offering) —
+  # used as both the Celery broker and result backend, same as locally.
+  - type: keyvalue
+    name: doc-sync-redis
+    plan: free
+    ipAllowList: [] # private network only — nothing outside Render needs to reach this directly
+
+  - type: web
+    name: doc-sync-api
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: doc-sync-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: doc-sync-redis
+          property: connectionString
+      - key: ENVIRONMENT
+        value: production
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
+      - key: REPO_CLONE_DIR
+        value: ./repo_clones
+      # Secrets — deliberately left blank here (sync: false) so Render
+      # prompts for them in the dashboard instead of storing real values
+      # in this git-tracked file.
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GITHUB_WEBHOOK_SECRET
+        sync: false
+      - key: GITHUB_APP_TOKEN
+        sync: false
+      - key: DASHBOARD_URL
+        sync: false
+
+  - type: worker
+    name: doc-sync-worker
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A app.workers.celery_app worker --loglevel=info
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: doc-sync-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: doc-sync-redis
+          property: connectionString
+      - key: ENVIRONMENT
+        value: production
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
+      - key: REPO_CLONE_DIR
+        value: ./repo_clones
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GITHUB_WEBHOOK_SECRET
+        sync: false
+      - key: GITHUB_APP_TOKEN
+        sync: false
