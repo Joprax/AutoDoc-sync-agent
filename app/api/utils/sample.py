@@ -1,3 +1,3 @@
-def greet(name: str) -> str:
-    """Returns a friendly greeting for the given name."""
-    return f"Hello, {name}!"
+def greet(name: str, formal: bool = False) -> str:
+    """Returns a greeting for the given name, formal or casual."""
+    return f"Good day, {name}." if formal else f"Hello, {name}!"
