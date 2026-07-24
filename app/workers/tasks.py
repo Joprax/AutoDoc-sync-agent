@@ -10,6 +10,7 @@ Write-back to the repo (commit + open a PR) is still a TODO — this task
 generates and stores docs but doesn't push anything anywhere yet.
 """
 import sys
+import subprocess
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -81,6 +82,8 @@ def process_push_event(payload: dict):
 
         try:
             local_path = ensure_local_clone(clone_url, repo_full_name, settings.REPO_CLONE_DIR)
+            subprocess.run(["git", "config", "user.email", "docsync-bot@joprax.dev"], cwd=local_path, check=True)
+            subprocess.run(["git", "config", "user.name", "doc-sync-agent[bot]"], cwd=local_path, check=True)
             file_versions = get_changed_file_versions(local_path, before_sha, after_sha)
 
             # (file_path, Symbol) pairs for everything that needs new/updated docs.
