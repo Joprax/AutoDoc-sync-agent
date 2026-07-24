@@ -1,22 +1,10 @@
-# AI Documentation Generator & Sync Agent
+# doc-sync-agent
 
-An agent that watches a GitHub repo, detects when a function or class
-**signature** actually changes (not just any commit), generates documentation
-for exactly what changed with an LLM, and opens a pull request — so nothing
-gets written to `main` without a human reviewing it first.
+**Automated documentation that stays in sync with your code — reviewed by a human before it ever lands.**
 
-Push code → the agent diffs it at the symbol level → generates docs for what
-changed → opens a PR with the results.
+Every push to a watched repository is diffed at the *symbol level* (functions, classes — not raw text lines). If a signature actually changed, the agent generates documentation for it with Gemini, opens a pull request with the update, and waits for a human to review and merge. If nothing meaningful changed, it does nothing — no noise, no docs PRs for whitespace or comment edits.
 
-## Why symbol-level diffing
-
-Most doc tools either regenerate everything on every commit (slow, noisy,
-expensive) or rely on someone remembering to update docs by hand (they
-don't). This agent parses each changed file's AST, hashes every function
-and class signature, and compares that hash against what it saw last time.
-A commit that only touches internals, comments, or formatting produces
-**zero** LLM calls. Only a real signature change — a new parameter, a
-different return type, a new/removed function — triggers doc generation.
+---
 
 ## How it works
 
@@ -24,123 +12,58 @@ different return type, a new/removed function — triggers doc generation.
 GitHub push
     │
     ▼
-Webhook → FastAPI (verifies signature, queues a task)
+Webhook → doc-sync-api (FastAPI)
     │
     ▼
-Celery worker
+Clone/update the repo locally
     │
-    ├─ clone/update the repo locally
-    ├─ diff old commit vs new commit, symbol by symbol (Python AST)
-    ├─ generate docs for changed symbols only (Gemini)
-    ├─ persist results to Postgres
-    └─ commit generated docs on a new branch → push → open a PR
+    ▼
+Diff symbols between before/after commit
+    │
+    ▼
+Changed signatures found? ──No──▶ done, nothing to do
+    │
+   Yes
+    │
+    ▼
+Generate docs for changed symbols (Gemini)
+    │
+    ▼
+Branch → commit docs → push → open PR
+    │
+    ▼
+Human reviews & merges
 ```
 
-Every run is logged (status, symbols changed, PR link, any error) and
-visible in the dashboard.
+## Live components
 
-## Stack
+| Component | What it does | Hosted on |
+|---|---|---|
+| **doc-sync-api** | Receives GitHub webhooks, verifies signatures, runs the pipeline | Render |
+| **doc-sync-db** | Stores registered repos, sync history, documented symbols | Render (Postgres) |
+| **dashboard** | Read-only view of watched repos, sync history, and generated docs | Vercel |
 
-- **API / worker**: FastAPI, Celery, Redis, PostgreSQL (SQLAlchemy)
-- **LLM**: Gemini
-- **Dashboard**: Next.js (App Router), server-rendered against the API
-- **Parsing**: Python's built-in `ast` module — no external parser dependency
+## Try it
 
-## Project structure
+1. **Register a repo** (one-time, per repo):
+   ```bash
+   python -m scripts.seed_repo owner/repo-name
+   ```
+2. **Push a commit** that changes a function or class signature.
+3. Watch the [dashboard](#) — a new sync entry appears, and a PR shows up in the repo with the generated docs attached.
 
-```
-app/                  FastAPI app, DB models, Celery task, GitHub write-back
-prototype/            Core parse/diff/generate logic (standalone, testable
-                       without any web framework — reused as-is by app/)
-scripts/               One-off admin scripts (register a repo, manual test trigger)
-dashboard/             Next.js frontend
-```
+## Tech stack
 
-## Running it locally
+- **FastAPI** — webhook receiver and dashboard API
+- **PostgreSQL** — persisted repo registry, sync history, and generated docs
+- **SQLAlchemy** — ORM layer
+- **Google Gemini** — documentation generation from function/class signatures
+- **GitHub REST API** — opening pull requests programmatically
+- **Render** — API + database hosting
+- **Vercel** — dashboard hosting
 
-**1. Start infrastructure**
-```bash
-docker compose up -d
-```
+## What it deliberately doesn't do
 
-**2. Set up the backend**
-```bash
-python -m venv .venv
-.venv\Scripts\activate        # Windows
-pip install -r requirements.txt
-cp .env.example .env          # then fill in GEMINI_API_KEY, GITHUB_WEBHOOK_SECRET,
-                               # and GITHUB_APP_TOKEN (see below)
-```
-
-**3. Create the database tables and register a repo**
-```bash
-python -c "from app.db.base import Base, engine; from app.db import models; Base.metadata.create_all(engine)"
-python -m scripts.seed_repo owner/repo-name
-```
-
-**4. Run the API and worker** (separate terminals)
-```bash
-uvicorn app.main:app --reload
-celery -A app.workers.celery_app worker --loglevel=info --pool=solo   # --pool=solo needed on Windows
-```
-
-**5. Run the dashboard**
-```bash
-cd dashboard
-npm install
-cp .env.example .env.local
-npm run dev
-```
-Open `http://localhost:3000`.
-
-**6. Point a real webhook at it**
-
-Locally, your machine isn't publicly reachable, so tunnel it:
-```bash
-ngrok http 8000
-```
-Then on GitHub → your repo → Settings → Webhooks → Add webhook:
-- Payload URL: `https://<your-ngrok-url>/webhook/github`
-- Content type: `application/json`
-- Secret: same value as `GITHUB_WEBHOOK_SECRET` in your `.env`
-- Events: just the `push` event
-
-Push a commit that changes a function signature and watch it flow through.
-
-## GitHub token setup
-
-`GITHUB_APP_TOKEN` needs write access to open PRs. Use a **fine-grained
-personal access token**, scoped to only the repo you're watching, with:
-- Contents: Read and write
-- Pull requests: Read and write
-
-## Testing without a live webhook
-
-```bash
-python -m scripts.test_webhook owner/repo-name
-```
-Resolves your local repo's last two commits into real SHAs and runs the
-full pipeline directly — no ngrok, no GitHub webhook needed, useful for
-quick iteration.
-
-## Design notes
-
-- **Docs are separate markdown pages, not rewritten docstrings.** Editing
-  source files via AST rewriting risks subtly corrupting code; generated
-  docs land in mirrored `.md` files under `docs_output_path` instead,
-  reviewable in a clean PR diff.
-- **Never pushes to the default branch directly.** Every write-back goes
-  through a `docs-sync/<sha>` branch and a PR — a human always reviews
-  before anything merges.
-- **The agent's own PR-branch pushes don't re-trigger itself** — the
-  webhook handler only reacts to pushes on the repo's configured default
-  branch.
-- **Idempotent by design.** Retries and webhook redeliveries reuse or
-  cleanly replace branches/PRs rather than erroring on "already exists."
-
-## Status
-
-Core pipeline (trigger → parse → diff → generate → write-back → PR) and
-the dashboard are complete and tested end-to-end against a real repo.
-Not yet done: deployment (currently local-only), JS/TS support (Python
-only for now).
+- **Doesn't commit to `main` directly.** Every generated doc goes through a PR — a human always has the final say.
+- **Doesn't regenerate docs for unchanged code.** Diffing happens at the symbol level, so a formatting pass or comment tweak doesn't trigger a doc rewrite.
+- **Doesn't run a background job queue in production.**
