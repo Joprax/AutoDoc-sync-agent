@@ -48,6 +48,6 @@ async def github_webhook(
     payload = await request.json()
 
     # Hand off to Celery immediately — don't do parsing/LLM work in the request thread.
-    process_push_event.delay(payload)
+    process_push_event(payload)
 
     return {"status": "queued"}
