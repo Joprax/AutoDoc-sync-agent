@@ -50,7 +50,7 @@ Human reviews & merges
    python -m scripts.seed_repo owner/repo-name
    ```
 2. **Push a commit** that changes a function or class signature.
-3. Watch the [dashboard](#) — a new sync entry appears, and a PR shows up in the repo with the generated docs attached.
+3. Watch the [dashboard](https://auto-doc-sync-agent-irvrxdyrp-joprax-s-projects.vercel.app) — a new sync entry appears, and a PR shows up in the repo with the generated docs attached.
 
 ## Tech stack
 
